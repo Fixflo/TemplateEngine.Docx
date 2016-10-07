@@ -29,7 +29,19 @@ namespace TemplateEngine.Docx
             }
 		}
 
-		protected IEnumerable<IContentItem> All
+        protected Container(IList<IContentItem> contentItems)
+        {
+            if (contentItems != null)
+            {
+                Lists = contentItems.OfType<ListContent>().ToList();
+                Tables = contentItems.OfType<TableContent>().ToList();
+                Fields = contentItems.OfType<FieldContent>().ToList();
+                Images = contentItems.OfType<ImageContent>().ToList();
+            }
+        }
+
+
+        protected IEnumerable<IContentItem> All
 		{
 			get
 			{

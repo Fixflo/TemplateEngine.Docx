@@ -2,7 +2,9 @@
 
 namespace TemplateEngine.Docx
 {
-	public class Content : Container, IEquatable<Content>
+    using System.Collections.Generic;
+
+    public class Content : Container, IEquatable<Content>
 	{
 		public Content()
 		{
@@ -11,7 +13,11 @@ namespace TemplateEngine.Docx
 		{
 		}
 
-		public bool Equals(Content other)
+        public Content(IList<IContentItem> contentItems) : base(contentItems)
+        {
+        }
+
+        public bool Equals(Content other)
 		{
 			return base.Equals(other);
 		}
