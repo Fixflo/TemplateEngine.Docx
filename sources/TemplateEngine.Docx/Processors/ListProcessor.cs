@@ -1,349 +1,377 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Xml.Linq;
-using TemplateEngine.Docx.Errors;
-
-namespace TemplateEngine.Docx.Processors
+﻿namespace TemplateEngine.Docx.Processors
 {
-	internal class ListProcessor:IProcessor
-	{
-		private bool _isNeedToRemoveContentControls;
-		private readonly ProcessContext _context;
-	
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Xml.Linq;
 
-		private class PropagationProcessResult : ProcessResult
-		{
-			internal IEnumerable<XElement> Result { get; set; }
-		}
-		/// <summary>
-		/// Entire list prototype, includes all list levels.
-		/// </summary>
-		private class Prototype
-		{
-			private readonly ProcessContext _context;
-			/// <summary>
-			/// Creates prototype from list of prototype items.
-			/// </summary>
-			/// <param name="context">Process context.</param>
-			/// <param name="prototypeItems">List of prototype items.</param>
-			private Prototype(ProcessContext context, IEnumerable<XElement> prototypeItems)
-			{
-				_context = context;
-				PrototypeItems = prototypeItems.ToList();
-			}
+    using TemplateEngine.Docx.Errors;
 
-			/// <summary>
-			/// Creates prototype from list content control and fieldNames.
-			/// </summary>
-			/// <param name="context">Process context.</param>
-			/// <param name="listContentControl">List content control element.</param>
-			/// <param name="fieldNames">Names of fields with content.</param>
-			public Prototype(ProcessContext context, XElement listContentControl, IEnumerable<string> fieldNames)
-			{
-				_context = context;
-				if (listContentControl.Name != W.sdt)
-					throw new Exception("List content control is not a content control element");
+    internal class ListProcessor : IProcessor
+    {
+        private readonly ProcessContext _context;
 
-				fieldNames = fieldNames.ToList();
+        private bool _isNeedToRemoveContentControls;
 
-				// All elements inside list control content are included to the prototype.
-				var listItems = listContentControl
-					.Element(W.sdtContent)
-					.Elements()
-					.ToList();
+        private HighlightOptions _highlightOptions;
 
-				var tagsInPrototype = listItems.DescendantsAndSelf(W.sdt)
-					.Select(sdt => sdt.SdtTagName());
+        public ListProcessor(ProcessContext context)
+        {
+            _context = context;
+        }
 
-				// If any field not found return empty list.
-				if (fieldNames.Any(fn => !tagsInPrototype.Contains(fn)))
-				{
-					IsValid = false;
-					return;
-				}
+        public ProcessResult FillContent(XElement contentControl, IEnumerable<IContentItem> items)
+        {
+            var processResult = ProcessResult.NotHandledResult;
+            var handled = false;
 
-				IsValid = true;
-				PrototypeItems = listItems;
-			}
+            foreach (var contentItem in items)
+            {
+                var itemProcessResult = FillContent(contentControl, contentItem);
+                processResult.Merge(itemProcessResult);
 
-			public bool IsValid { get; private set; }
-			public List<XElement> PrototypeItems { get; private set; }
+                if (!itemProcessResult.Handled)
+                {
+                    continue;
+                }
 
-			public Prototype Exclude(LevelPrototype prototypeForExclude)
-			{
-				return new Prototype(_context, PrototypeItems
-					.Where(itemPrototype => !prototypeForExclude
-						.PrototypeItems
-						.Contains(itemPrototype)));
-			}
+                handled = true;
+            }
 
-			/// <summary>
-			/// Retrieves prototype for current content item.
-			/// </summary>
-			/// <param name="fieldNames">Fields names for current content item.</param>
-			/// <returns>Prototype for current content item.</returns>
-			public LevelPrototype CurrentLevelPrototype(IEnumerable<string> fieldNames)
-			{
-				return new LevelPrototype(_context, PrototypeItems, fieldNames);
-			}
-		}
+            if (!handled)
+            {
+                return processResult;
+            }
 
-		/// <summary>
-		/// Prototype of the concrete level of list.
-		/// </summary>
-		private class LevelPrototype
-		{
-			private readonly ProcessContext _context;
-			public bool IsValid { get; private set; }
-			public LevelPrototype(ProcessContext context, IEnumerable<XElement> prototypeItems, IEnumerable<string> fieldNames)
-			{
-				_context = context;
-				var currentLevelPrototype = new List<XElement>();
+            if (processResult.Success && _isNeedToRemoveContentControls)
+            {
+                foreach (var sdt in contentControl.Descendants(W.sdt).ToList())
+                {
+                    // Remove the content control, and replace it with its contents.
+                    sdt.RemoveContentControl();
+                }
 
-				// Items for which no content control.
-				// Add this items to the prototype if there are items after them.
-				var maybeNeedToAdd = new List<XElement>();
-				var numberingElementReached = false;
+                contentControl.RemoveContentControl();
+            }
 
-				foreach (var prototypeItem in prototypeItems)
-				{
-					//search for first item with numbering
-					if (!numberingElementReached)
-					{
-						var paragraph = prototypeItem.DescendantsAndSelf(W.p).FirstOrDefault();
-						if (paragraph != null &&
-							ListItemRetriever.RetrieveListItem(
-							context.Document.NumberingPart, context.Document.StylesPart, paragraph)
-							.IsListItem)
-							numberingElementReached = true;
-						else
-							continue;
-					}
-					if ((!prototypeItem.FirstLevelDescendantsAndSelf(W.sdt).Any() && prototypeItem.Value != "") ||
-						(prototypeItem
-						.FirstLevelDescendantsAndSelf(W.sdt)
-						.Any(sdt => fieldNames.Contains(sdt.SdtTagName()))))
-					{
-						currentLevelPrototype.AddRange(maybeNeedToAdd);
-						currentLevelPrototype.Add(prototypeItem);
-					}
+            return processResult;
+        }
 
-					else
-					{
-						maybeNeedToAdd.Add(prototypeItem);
-					}
-				}
-				if (!currentLevelPrototype.Any()) return;
+        public IProcessor SetRemoveContentControls(bool isNeedToRemove)
+        {
+            _isNeedToRemoveContentControls = isNeedToRemove;
+            return this;
+        }
 
-				PrototypeItems = currentLevelPrototype;
+        public IProcessor SetHighlightOptions(HighlightOptions highlightOptions)
+        {
+            _highlightOptions = highlightOptions;
+            return this;
+        }
 
-				if (fieldNames.Any(fn => !SdtTags.Contains(fn)))
-				{
-					IsValid = false;
-					return;
-				}
+        private ProcessResult FillContent(XElement contentControl, IContentItem item)
+        {
+            var processResult = ProcessResult.NotHandledResult;
+            if (!(item is ListContent))
+            {
+                return ProcessResult.NotHandledResult;
+            }
 
-				IsValid = true;
-				PrototypeItems = currentLevelPrototype;
+            var list = item as ListContent;
 
-			}
+            // If there isn't a list with that name, add an error to the error string.
+            if (contentControl == null)
+            {
+                processResult.AddError(new ContentControlNotFoundError(list));
 
-			private LevelPrototype(ProcessContext context, IEnumerable<XElement> prototypeItems)
-			{
-				_context = context;
-				PrototypeItems = prototypeItems.ToList();
-			}
-			public List<XElement> PrototypeItems { get; private set; }
+                return processResult;
+            }
 
-			private List<string> SdtTags
-			{
-				get
-				{
-					return PrototypeItems == null
-						? new List<string>() 
-						: PrototypeItems.DescendantsAndSelf(W.sdt)
-						.Select(sdt => sdt.SdtTagName())
-						.ToList();
-				}
-			}
+            // If the list doesn't contain content controls in items, then error.
+            var itemsContentControl = contentControl.Descendants(W.sdt).FirstOrDefault();
 
-			public LevelPrototype Clone()
-			{
-				return new LevelPrototype(_context, PrototypeItems.ToList());
-			}
-		}
+            if (itemsContentControl == null)
+            {
+                processResult.AddError(new CustomContentItemError(list, "doesn't contain content controls in items"));
 
-		public ListProcessor(ProcessContext context)
-		{
-			_context = context;
-		}
-		public IProcessor SetRemoveContentControls(bool isNeedToRemove)
-		{
-			_isNeedToRemoveContentControls = isNeedToRemove;
-			return this;
-		}
+                return processResult;
+            }
 
-		public ProcessResult FillContent(XElement contentControl, IEnumerable<IContentItem> items)
-		{
-			var processResult = ProcessResult.NotHandledResult; 
-			var handled = false;
+            var fieldNames = list.FieldNames.ToList();
 
-			foreach (var contentItem in items)
-			{
-				var itemProcessResult = FillContent(contentControl, contentItem);
-				processResult.Merge(itemProcessResult);
+            // Create a prototype of new items to be inserted into the document.
+            var prototype = new Prototype(_context, contentControl, fieldNames);
 
-				if (!itemProcessResult.Handled) continue;
+            if (!prototype.IsValid)
+            {
+                processResult.AddError(
+                    new CustomContentItemError(
+                        list, 
+                        string.Format("doesn't contain items with content controls {0}", string.Join(", ", fieldNames))));
 
-				handled = true;
-			}
+                return processResult;
+            }
 
-			if (!handled) return processResult;
+            new NumberingAccessor(_context.Document.NumberingPart, _context.LastNumIds).ResetNumbering(
+                prototype.PrototypeItems);
 
-			if (processResult.Success && _isNeedToRemoveContentControls)
-			{
-				foreach (var sdt in contentControl.Descendants(W.sdt).ToList())
-				{
-					// Remove the content control, and replace it with its contents.
-					sdt.RemoveContentControl();
-				}
-				contentControl.RemoveContentControl();
-			}
-			return processResult;
-		}
+            // Propagates a prototype.
+            var propagationResult = PropagatePrototype(prototype, list.Items);
 
-		private ProcessResult FillContent(XElement contentControl, IContentItem item)
-		{
-			var processResult = ProcessResult.NotHandledResult; 
-			if (!(item is ListContent))
-			{
-				return ProcessResult.NotHandledResult;
-			}
+            processResult.Merge(propagationResult);
 
-			var list = item as ListContent;
+            // Remove the prototype row and add all of the newly constructed rows.
+            prototype.PrototypeItems.Last().AddAfterSelf(propagationResult.Result);
+            prototype.PrototypeItems.Remove();
 
-			// If there isn't a list with that name, add an error to the error string.
-			if (contentControl == null)
-			{
-				processResult.AddError(new ContentControlNotFoundError(list));
+            processResult.AddItemToHandled(list);
 
-				return processResult;
-			}
+            return processResult;
+        }
 
-			// If the list doesn't contain content controls in items, then error.
-			var itemsContentControl = contentControl
-				.Descendants(W.sdt)
-				.FirstOrDefault();
+        // Fills prototype with values recursive.
+        private PropagationProcessResult PropagatePrototype(Prototype prototype, IEnumerable<ListItemContent> content)
+        {
+            var processResult = new PropagationProcessResult();
+            var newRows = new List<XElement>();
 
-			if (itemsContentControl == null)
-			{
-				processResult.AddError(
-					new CustomContentItemError(list, "doesn't contain content controls in items"));
-			
-				return processResult;
-			}
+            foreach (var contentItem in content)
+            {
+                var currentLevelPrototype = prototype.CurrentLevelPrototype(contentItem.FieldNames);
 
-			var fieldNames = list.FieldNames.ToList();
+                if (currentLevelPrototype == null || !currentLevelPrototype.IsValid)
+                {
+                    processResult.AddError(
+                        new CustomError(
+                            string.Format(
+                                "Prototype for list item '{0}' not found", 
+                                string.Join(", ", contentItem.FieldNames))));
 
-			// Create a prototype of new items to be inserted into the document.
-			var prototype = new Prototype(_context, contentControl, fieldNames);
+                    continue;
+                }
 
-			if (!prototype.IsValid)
-			{
-				processResult.AddError(
-					new CustomContentItemError(list, 
-						String.Format("doesn't contain items with content controls {0}",
-						string.Join(", ", fieldNames))));
+                // Create new item from the prototype.
+                var newItemEntry = currentLevelPrototype.Clone();
 
-				return processResult;
-			}
+                foreach (var xElement in newItemEntry.PrototypeItems)
+                {
+                    var newElement = new XElement(xElement);
+                    if (!newElement.DescendantsAndSelf(W.sdt).Any())
+                    {
+                        newRows.Add(newElement);
+                        continue;
+                    }
 
-			new NumberingAccessor(_context.Document.NumberingPart, _context.LastNumIds)
-					.ResetNumbering(prototype.PrototypeItems);
+                    foreach (var sdt in newElement.FirstLevelDescendantsAndSelf(W.sdt).ToList())
+                    {
+                        var fieldContent = contentItem.GetContentItem(sdt.SdtTagName());
+                        if (fieldContent == null)
+                        {
+                            processResult.AddError(
+                                new CustomError(
+                                    string.Format("Field content for field '{0}' not found", sdt.SdtTagName())));
 
-			// Propagates a prototype.
-			var propagationResult = PropagatePrototype(prototype, list.Items);
+                            continue;
+                        }
 
-			processResult.Merge(propagationResult);
-			
-			// Remove the prototype row and add all of the newly constructed rows.
-			prototype.PrototypeItems.Last().AddAfterSelf(propagationResult.Result);
-			prototype.PrototypeItems.Remove();
+                        var contentProcessResult =
+                            new ContentProcessor(_context)
+                                .SetRemoveContentControls(_isNeedToRemoveContentControls)
+                                .SetHighlightOptions(_highlightOptions)
+                                .FillContent(sdt, fieldContent);
 
-			processResult.AddItemToHandled(list);
-			
-			return processResult;
-		}
+                        processResult.Merge(contentProcessResult);
+                    }
 
-		// Fills prototype with values recursive.
-		private PropagationProcessResult PropagatePrototype(Prototype prototype, 
-			IEnumerable<ListItemContent> content)
-		{
-			var processResult = new PropagationProcessResult();
-			var newRows = new List<XElement>();
+                    newRows.Add(newElement);
+                }
 
-			foreach (var contentItem in content)
-			{
-				var currentLevelPrototype = prototype.CurrentLevelPrototype(contentItem.FieldNames);
-				
-				if (currentLevelPrototype == null || !currentLevelPrototype.IsValid)
-				{
-					processResult.AddError(new CustomError(
-						string.Format("Prototype for list item '{0}' not found", 
-							string.Join(", ", contentItem.FieldNames))));
+                // If there are nested items fill prototype for them.
+                if (contentItem.NestedFields != null)
+                {
+                    var filledNestedFields = PropagatePrototype(
+                        prototype.Exclude(currentLevelPrototype), 
+                        contentItem.NestedFields);
 
-					continue;
-				}
-				
-				// Create new item from the prototype.
-				var newItemEntry = currentLevelPrototype.Clone();
+                    newRows.AddRange(filledNestedFields.Result);
+                }
+            }
 
-				foreach (var xElement in newItemEntry.PrototypeItems)
-				{
-					var newElement = new XElement(xElement);
-					if (!newElement.DescendantsAndSelf(W.sdt).Any())
-					{
-						newRows.Add(newElement);
-						continue;
-					}
+            processResult.Result = newRows;
+            return processResult;
+        }
 
-					foreach (var sdt in newElement.FirstLevelDescendantsAndSelf(W.sdt).ToList())
-					{
-						var fieldContent = contentItem.GetContentItem(sdt.SdtTagName());
-						if (fieldContent == null)
-						{
-							processResult.AddError(new CustomError(
-								string.Format("Field content for field '{0}' not found", 
-								sdt.SdtTagName())));
+        /// <summary>
+        /// Prototype of the concrete level of list.
+        /// </summary>
+        private class LevelPrototype
+        {
+            private readonly ProcessContext _context;
 
-							continue;
-						}
-						
-						var contentProcessResult = new ContentProcessor(_context)
-							.SetRemoveContentControls(_isNeedToRemoveContentControls)
-							.FillContent(sdt, fieldContent);
+            public LevelPrototype(
+                ProcessContext context, 
+                IEnumerable<XElement> prototypeItems, 
+                IEnumerable<string> fieldNames)
+            {
+                _context = context;
+                var currentLevelPrototype = new List<XElement>();
 
-						processResult.Merge(contentProcessResult);
-						
-						
-					}
-					newRows.Add(newElement);
-					
-				}
-				
-				// If there are nested items fill prototype for them.
-				if (contentItem.NestedFields != null)
-				{
-					var filledNestedFields = PropagatePrototype(
-						prototype.Exclude(currentLevelPrototype), 
-						contentItem.NestedFields);
+                // Items for which no content control.
+                // Add this items to the prototype if there are items after them.
+                var maybeNeedToAdd = new List<XElement>();
+                var numberingElementReached = false;
 
-					newRows.AddRange(filledNestedFields.Result);					
-				}		
-			}
-			processResult.Result = newRows;
-			return processResult;
-		}
-	}
+                foreach (var prototypeItem in prototypeItems)
+                {
+                    // search for first item with numbering
+                    if (!numberingElementReached)
+                    {
+                        var paragraph = prototypeItem.DescendantsAndSelf(W.p).FirstOrDefault();
+                        if (paragraph != null
+                            && ListItemRetriever.RetrieveListItem(
+                                context.Document.NumberingPart, 
+                                context.Document.StylesPart, 
+                                paragraph).IsListItem)
+                        {
+                            numberingElementReached = true;
+                        }
+                        else
+                        {
+                            continue;
+                        }
+                    }
+
+                    if ((!prototypeItem.FirstLevelDescendantsAndSelf(W.sdt).Any() && prototypeItem.Value != string.Empty)
+                        || prototypeItem.FirstLevelDescendantsAndSelf(W.sdt)
+                               .Any(sdt => fieldNames.Contains(sdt.SdtTagName())))
+                    {
+                        currentLevelPrototype.AddRange(maybeNeedToAdd);
+                        currentLevelPrototype.Add(prototypeItem);
+                    }
+                    else
+                    {
+                        maybeNeedToAdd.Add(prototypeItem);
+                    }
+                }
+
+                if (!currentLevelPrototype.Any())
+                {
+                    return;
+                }
+
+                PrototypeItems = currentLevelPrototype;
+
+                if (fieldNames.Any(fn => !SdtTags.Contains(fn)))
+                {
+                    IsValid = false;
+                    return;
+                }
+
+                IsValid = true;
+                PrototypeItems = currentLevelPrototype;
+            }
+
+            private LevelPrototype(ProcessContext context, IEnumerable<XElement> prototypeItems)
+            {
+                _context = context;
+                PrototypeItems = prototypeItems.ToList();
+            }
+
+            public bool IsValid { get; private set; }
+
+            public List<XElement> PrototypeItems { get; private set; }
+
+            private List<string> SdtTags
+            {
+                get
+                {
+                    return PrototypeItems == null
+                               ? new List<string>()
+                               : PrototypeItems.DescendantsAndSelf(W.sdt).Select(sdt => sdt.SdtTagName()).ToList();
+                }
+            }
+
+            public LevelPrototype Clone()
+            {
+                return new LevelPrototype(_context, PrototypeItems.ToList());
+            }
+        }
+
+        private class PropagationProcessResult : ProcessResult
+        {
+            internal IEnumerable<XElement> Result { get; set; }
+        }
+
+        /// <summary>
+        /// Entire list prototype, includes all list levels.
+        /// </summary>
+        private class Prototype
+        {
+            private readonly ProcessContext _context;
+
+            /// <summary>
+            /// Creates prototype from list content control and fieldNames.
+            /// </summary>
+            /// <param name="context">Process context.</param>
+            /// <param name="listContentControl">List content control element.</param>
+            /// <param name="fieldNames">Names of fields with content.</param>
+            public Prototype(ProcessContext context, XElement listContentControl, IEnumerable<string> fieldNames)
+            {
+                _context = context;
+                if (listContentControl.Name != W.sdt)
+                {
+                    throw new Exception("List content control is not a content control element");
+                }
+
+                fieldNames = fieldNames.ToList();
+
+                // All elements inside list control content are included to the prototype.
+                var listItems = listContentControl.Element(W.sdtContent).Elements().ToList();
+
+                var tagsInPrototype = listItems.DescendantsAndSelf(W.sdt).Select(sdt => sdt.SdtTagName());
+
+                // If any field not found return empty list.
+                if (fieldNames.Any(fn => !tagsInPrototype.Contains(fn)))
+                {
+                    IsValid = false;
+                    return;
+                }
+
+                IsValid = true;
+                PrototypeItems = listItems;
+            }
+
+            /// <summary>
+            /// Creates prototype from list of prototype items.
+            /// </summary>
+            /// <param name="context">Process context.</param>
+            /// <param name="prototypeItems">List of prototype items.</param>
+            private Prototype(ProcessContext context, IEnumerable<XElement> prototypeItems)
+            {
+                _context = context;
+                PrototypeItems = prototypeItems.ToList();
+            }
+
+            public bool IsValid { get; private set; }
+
+            public List<XElement> PrototypeItems { get; private set; }
+
+            /// <summary>
+            /// Retrieves prototype for current content item.
+            /// </summary>
+            /// <param name="fieldNames">Fields names for current content item.</param>
+            /// <returns>Prototype for current content item.</returns>
+            public LevelPrototype CurrentLevelPrototype(IEnumerable<string> fieldNames)
+            {
+                return new LevelPrototype(_context, PrototypeItems, fieldNames);
+            }
+
+            public Prototype Exclude(LevelPrototype prototypeForExclude)
+            {
+                return new Prototype(
+                    _context, 
+                    PrototypeItems.Where(itemPrototype => !prototypeForExclude.PrototypeItems.Contains(itemPrototype)));
+            }
+        }
+    }
 }

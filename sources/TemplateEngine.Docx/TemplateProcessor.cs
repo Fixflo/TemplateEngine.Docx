@@ -16,6 +16,8 @@ namespace TemplateEngine.Docx
         private bool _isNeedToRemoveContentControls;
         private bool _isNeedToNoticeAboutErrors;
 
+        private HighlightOptions _highlightOptions;
+
         public XDocument Document { get { return _wordDocument.MainDocumentPart; } }
 
         public XDocument NumberingPart { get { return _wordDocument.NumberingPart; } }
@@ -58,11 +60,18 @@ namespace TemplateEngine.Docx
             return this;
         }
 
+        public TemplateProcessor SetHighlightOptions(HighlightOptions highlightOptions)
+        {
+            _highlightOptions = highlightOptions;
+            return this;
+        }
+
         public TemplateProcessor FillContent(Content content)
         {
             var processor = new ContentProcessor(
                 new ProcessContext(_wordDocument))
-                .SetRemoveContentControls(_isNeedToRemoveContentControls);
+                .SetRemoveContentControls(_isNeedToRemoveContentControls)
+                .SetHighlightOptions(_highlightOptions);
 
             var processResult = processor.FillContent(Document.Root.Element(W.body), content);
 
@@ -94,7 +103,8 @@ namespace TemplateEngine.Docx
         {
             var processor = new ContentProcessor(
                 new ProcessContext(_wordDocument))
-                .SetRemoveContentControls(_isNeedToRemoveContentControls);
+                .SetRemoveContentControls(_isNeedToRemoveContentControls)
+                .SetHighlightOptions(_highlightOptions);
 
             var processResult = processor.FindAllTags(Document.Root.Element(W.body));
 

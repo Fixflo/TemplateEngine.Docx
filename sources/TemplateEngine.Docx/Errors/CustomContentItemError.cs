@@ -1,50 +1,58 @@
-﻿using System;
-
-namespace TemplateEngine.Docx.Errors
+﻿namespace TemplateEngine.Docx.Errors
 {
-	internal class CustomContentItemError:IError, IEquatable<CustomContentItemError>
-	{
-		private const string ErrorMessageTemplate =
-					"{0} Content Control '{1}' {2}.";
-		internal CustomContentItemError(IContentItem contentItem, string customMessage)
-		{
-			ContentItem = contentItem;
-			_customMessage = customMessage;
-		}
+    using System;
 
-		private readonly string _customMessage;
-		public string Message
-		{
-			get
-			{
-				return string.Format(ErrorMessageTemplate, 
-					ContentItem.GetContentItemName(), 
-					ContentItem.Name, _customMessage);
-			}
-		}
+    internal class CustomContentItemError : IError, IEquatable<CustomContentItemError>
+    {
+        private const string ErrorMessageTemplate = "{0} Content Control '{1}' {2}.";
 
-		public IContentItem ContentItem { get; private set; }
-		#region Equals
-		public bool Equals(CustomContentItemError other)
-		{
-			if (other == null) return false;
+        private readonly string _customMessage;
 
-			return other.ContentItem.Equals(ContentItem) && other.Message.Equals(Message);
-		}
+        internal CustomContentItemError(IContentItem contentItem, string customMessage)
+        {
+            ContentItem = contentItem;
+            _customMessage = customMessage;
+        }
 
-		public bool Equals(IError other)
-		{
-			if (!(other is CustomContentItemError)) return false;
+        public IContentItem ContentItem { get; private set; }
 
-			return Equals((CustomContentItemError)other);
-		}
+        public string Message
+        {
+            get
+            {
+                return string.Format(
+                    ErrorMessageTemplate, 
+                    ContentItem.GetContentItemName(), 
+                    ContentItem.Name, 
+                    _customMessage);
+            }
+        }
 
-		public override int GetHashCode()
-		{
-			var customItemHash = ContentItem.GetHashCode();
+        public bool Equals(CustomContentItemError other)
+        {
+            if (other == null)
+            {
+                return false;
+            }
 
-			return new { customItemHash, _customMessage }.GetHashCode();
-		}
-		#endregion
-	}
+            return other.ContentItem.Equals(ContentItem) && other.Message.Equals(Message);
+        }
+
+        public bool Equals(IError other)
+        {
+            if (!(other is CustomContentItemError))
+            {
+                return false;
+            }
+
+            return Equals((CustomContentItemError)other);
+        }
+
+        public override int GetHashCode()
+        {
+            var customItemHash = ContentItem.GetHashCode();
+
+            return new { customItemHash, _customMessage }.GetHashCode();
+        }
+    }
 }

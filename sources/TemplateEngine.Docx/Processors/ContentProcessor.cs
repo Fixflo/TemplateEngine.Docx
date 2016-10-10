@@ -1,34 +1,26 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using System.Xml.Linq;
-
-namespace TemplateEngine.Docx.Processors
+﻿namespace TemplateEngine.Docx.Processors
 {
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Xml.Linq;
+
     internal class ContentProcessor
     {
+        private readonly List<IProcessor> _processors;
+
         private bool _isNeedToRemoveContentControls;
 
-        private readonly List<IProcessor> _processors;
+        private HighlightOptions _highlightOptions;
 
         internal ContentProcessor(ProcessContext context)
         {
             _processors = new List<IProcessor>
             {
-                new FieldsProcessor(),
+                new FieldsProcessor(context),
                 new TableProcessor(context),
                 new ListProcessor(context),
                 new ImagesProcessor(context)
             };
-        }
-
-        public ContentProcessor SetRemoveContentControls(bool isNeedToRemove)
-        {
-            _isNeedToRemoveContentControls = isNeedToRemove;
-            foreach (var processor in _processors)
-            {
-                processor.SetRemoveContentControls(_isNeedToRemoveContentControls);
-            }
-            return this;
         }
 
         public ProcessResult FillContent(XElement content, IEnumerable<IContentItem> data)
@@ -39,13 +31,18 @@ namespace TemplateEngine.Docx.Processors
 
             foreach (var contentItems in data.GroupBy(d => d.Name))
             {
-                if (processedItems.Any(i => i.Name == contentItems.Key)) continue;
+                if (processedItems.Any(i => i.Name == contentItems.Key))
+                {
+                    continue;
+                }
 
                 var contentControls = FindContentControls(content, contentItems.Key).ToList();
 
-                //Need to get error message from processor.
+                // Need to get error message from processor.
                 if (!contentControls.Any())
+                {
                     contentControls.Add(null);
+                }
 
                 foreach (var xElement in contentControls)
                 {
@@ -70,38 +67,93 @@ namespace TemplateEngine.Docx.Processors
             return result;
         }
 
+        public ProcessResult FillContent(XElement content, Content data)
+        {
+            return FillContent(content, data.AsEnumerable());
+        }
+
+        public ProcessResult FillContent(XElement content, IContentItem data)
+        {
+            return FillContent(content, new List<IContentItem> { data });
+        }
+
         public List<string> FindAllTags(XElement content)
         {
             var result = ProcessResult.NotHandledResult;
-            //var processedItems = new List<IContentItem>();
-            //data = data.ToList();
 
+            // var processedItems = new List<IContentItem>();
+            // data = data.ToList();
             var contentControls = FindTags(content).ToList();
 
-            //Need to get error message from processor.
+            // Need to get error message from processor.
             if (!contentControls.Any())
+            {
                 contentControls.Add(null);
+            }
 
-            //foreach (var xElement in contentControls)
-            //{
-            //    if (contentItems.Any(item => item is TableContent) && xElement != null)
-            //    {
-            //        var processTableFieldsResult = ProcessTableFields(data.OfType<FieldContent>(), xElement);
-            //        processedItems.AddRange(processTableFieldsResult.HandledItems);
+            // foreach (var xElement in contentControls)
+            // {
+            // if (contentItems.Any(item => item is TableContent) && xElement != null)
+            // {
+            // var processTableFieldsResult = ProcessTableFields(data.OfType<FieldContent>(), xElement);
+            // processedItems.AddRange(processTableFieldsResult.HandledItems);
 
-            //        result.Merge(processTableFieldsResult);
-            //    }
+            // result.Merge(processTableFieldsResult);
+            // }
 
-            //    foreach (var processor in _processors)
-            //    {
-            //        var processorResult = processor.FillContent(xElement, contentItems);
+            // foreach (var processor in _processors)
+            // {
+            // var processorResult = processor.FillContent(xElement, contentItems);
 
-            //        processedItems.AddRange(processorResult.HandledItems);
-            //        result.Merge(processorResult);
-            //    }
-            //}
-
+            // processedItems.AddRange(processorResult.HandledItems);
+            // result.Merge(processorResult);
+            // }
+            // }
             return contentControls;
+        }
+
+        public ContentProcessor SetRemoveContentControls(bool isNeedToRemove)
+        {
+            _isNeedToRemoveContentControls = isNeedToRemove;
+            foreach (var processor in _processors)
+            {
+                processor.SetRemoveContentControls(_isNeedToRemoveContentControls);
+            }
+
+            return this;
+        }
+
+        public ContentProcessor SetHighlightOptions(HighlightOptions highlightOptions)
+        {
+            _highlightOptions  = highlightOptions;
+            foreach (var processor in _processors)
+            {
+                processor.SetHighlightOptions(_highlightOptions);
+            }
+
+            return this;
+        }
+
+        private IEnumerable<XElement> FindContentControls(XElement content, string tagName)
+        {
+            return content
+
+                // top level content controls
+                .FirstLevelDescendantsAndSelf(W.sdt)
+
+                // with specified tagName
+                .Where(sdt => tagName == sdt.SdtTagName());
+        }
+
+        private IEnumerable<string> FindTags(XElement content)
+        {
+            return content
+
+                // top level content controls
+                .FirstLevelDescendantsAndSelf(W.sdt)
+
+                // with specified tagName
+                .Where(sdt => sdt.SdtTagName() != string.Empty).Select(e => e.SdtTagName());
         }
 
         /// <summary>
@@ -128,35 +180,6 @@ namespace TemplateEngine.Docx.Processors
             }
 
             return processResult;
-        }
-
-        public ProcessResult FillContent(XElement content, Content data)
-        {
-            return FillContent(content, data.AsEnumerable());
-        }
-
-        public ProcessResult FillContent(XElement content, IContentItem data)
-        {
-            return FillContent(content, new List<IContentItem> { data });
-        }
-
-        private IEnumerable<XElement> FindContentControls(XElement content, string tagName)
-        {
-            return content
-                //top level content controls
-                .FirstLevelDescendantsAndSelf(W.sdt)
-                //with specified tagName
-                .Where(sdt => tagName == sdt.SdtTagName());
-        }
-
-        private IEnumerable<string> FindTags(XElement content)
-        {
-            return content
-                //top level content controls
-                .FirstLevelDescendantsAndSelf(W.sdt)
-                //with specified tagName
-                .Where(sdt => sdt.SdtTagName() != string.Empty)
-                .Select(e=>e.SdtTagName());
         }
     }
 }

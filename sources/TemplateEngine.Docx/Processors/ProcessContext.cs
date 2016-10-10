@@ -1,19 +1,17 @@
-﻿using DocumentFormat.OpenXml.Packaging;
-using System.Collections.Generic;
-using System.Xml.Linq;
-
-namespace TemplateEngine.Docx.Processors
+﻿namespace TemplateEngine.Docx.Processors
 {
-	internal class ProcessContext
-	{
-		internal WordDocumentContainer Document { get; private set; }
-        internal Dictionary<int, int> LastNumIds { get; private set; }
+    using System.Collections.Generic;
 
-		internal ProcessContext(WordDocumentContainer document)
-		{
-			Document = document;
+    internal class ProcessContext
+    {
+        internal ProcessContext(WordDocumentContainer document)
+        {
+            Document = document;
             LastNumIds = new Dictionary<int, int>();
-			        
-		}
-	}
+        }
+
+        internal WordDocumentContainer Document { get; private set; }
+
+        internal Dictionary<int, int> LastNumIds { get; private set; }
+    }
 }

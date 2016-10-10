@@ -1,41 +1,34 @@
-﻿using System;
-
-namespace TemplateEngine.Docx.Errors
+﻿namespace TemplateEngine.Docx.Errors
 {
-	internal class CustomError:IError, IEquatable<CustomError>
-	{
-		internal CustomError(string customMessage)
-		{
-			_customMessage = customMessage;
-		}
+    using System;
 
-		private readonly string _customMessage;
-		public string Message
-		{
-			get
-			{
-				return _customMessage;
-			}
-		}
+    internal class CustomError : IError, IEquatable<CustomError>
+    {
+        internal CustomError(string customMessage)
+        {
+            Message = customMessage;
+        }
 
-		#region Equals
-		public bool Equals(IError other)
-		{
-			if (!(other is CustomError))
-				return false;
+        public string Message { get; }
 
-			return Equals((CustomError) other);
-		}
-		
-		public bool Equals(CustomError other)
-		{
-			return Message.Equals(other.Message);
-		}
+        public bool Equals(IError other)
+        {
+            if (!(other is CustomError))
+            {
+                return false;
+            }
 
-		public override int GetHashCode()
-		{
-			return Message.GetHashCode();
-		}
-		#endregion
-	}
+            return Equals((CustomError)other);
+        }
+
+        public bool Equals(CustomError other)
+        {
+            return Message.Equals(other.Message);
+        }
+
+        public override int GetHashCode()
+        {
+            return Message.GetHashCode();
+        }
+    }
 }

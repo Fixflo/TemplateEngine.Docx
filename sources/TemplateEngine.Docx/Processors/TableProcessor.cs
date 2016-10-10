@@ -1,250 +1,272 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Xml.Linq;
-using TemplateEngine.Docx.Errors;
-
-namespace TemplateEngine.Docx.Processors
+﻿namespace TemplateEngine.Docx.Processors
 {
-	internal class TableProcessor : IProcessor
-	{
-		private bool _isNeedToRemoveContentControls;
-		private readonly ProcessContext _context;
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Xml.Linq;
 
-		public TableProcessor(ProcessContext context)
-		{
-			_context = context;
-		}
-		public IProcessor SetRemoveContentControls(bool isNeedToRemove)
-		{
-			_isNeedToRemoveContentControls = isNeedToRemove;
-			return this;
-		}
-		
-		public ProcessResult FillContent(XElement contentControl, IEnumerable<IContentItem> items)
-		{
-			var processResult = ProcessResult.NotHandledResult; 
-			var handled = false;
-			
-			foreach (var contentItem in items)
-			{
-				var itemProcessResult = FillContent(contentControl, contentItem);
-				if (!itemProcessResult.Handled) continue;
+    using TemplateEngine.Docx.Errors;
 
-				handled = true;
+    internal class TableProcessor : IProcessor
+    {
+        private readonly ProcessContext _context;
 
-				processResult.Merge(itemProcessResult);
-			}
+        private bool _isNeedToRemoveContentControls;
 
-			if (!handled) return ProcessResult.NotHandledResult;
+        private HighlightOptions _highlightOptions;
 
-			if (processResult.Success && _isNeedToRemoveContentControls)
-			{
-				// Remove the content control for the table and replace it with its contents.
-				foreach (var xElement in contentControl.AncestorsAndSelf(W.sdt))
-				{
-					xElement.RemoveContentControl();
-				}
-			}
+        public TableProcessor(ProcessContext context)
+        {
+            _context = context;
+        }
 
-			return processResult;
-		}
+        public ProcessResult FillContent(XElement contentControl, IEnumerable<IContentItem> items)
+        {
+            var processResult = ProcessResult.NotHandledResult;
+            var handled = false;
 
-		/// <summary>
-		/// Fills content with one content item
-		/// </summary>
-		/// <param name="contentControl">Content control</param>
-		/// <param name="item">Content item</param>
-		private ProcessResult FillContent(XContainer contentControl, IContentItem item)
-		{
-			if (!(item is TableContent))
-				return ProcessResult.NotHandledResult;
+            foreach (var contentItem in items)
+            {
+                var itemProcessResult = FillContent(contentControl, contentItem);
+                if (!itemProcessResult.Handled)
+                {
+                    continue;
+                }
 
-			var processResult = ProcessResult.NotHandledResult; 
+                handled = true;
 
-			var table = item as TableContent;
+                processResult.Merge(itemProcessResult);
+            }
 
-			// If there isn't a table with that name, add an error to the error string,
-			// and continue with next table.
-			if (contentControl == null)
-			{
-				processResult.AddError(new ContentControlNotFoundError(table));
+            if (!handled)
+            {
+                return ProcessResult.NotHandledResult;
+            }
 
-				return processResult;
-			}
+            if (processResult.Success && _isNeedToRemoveContentControls)
+            {
+                // Remove the content control for the table and replace it with its contents.
+                foreach (var xElement in contentControl.AncestorsAndSelf(W.sdt))
+                {
+                    xElement.RemoveContentControl();
+                }
+            }
 
-			// If the table doesn't contain content controls in cells, then error and continue with next table.
-			var cellContentControl = contentControl
-				.Descendants(W.sdt)
-				.FirstOrDefault();
-			if (cellContentControl == null)
-			{
-				processResult.AddError(new CustomContentItemError(table,
-					string.Format("doesn't contain content controls in cells")));
+            return processResult;
+        }
 
-				return processResult;
-			}
+        public IProcessor SetRemoveContentControls(bool isNeedToRemove)
+        {
+            _isNeedToRemoveContentControls = isNeedToRemove;
+            return this;
+        }
 
-			var fieldNames = table.FieldNames.ToList();
+        public IProcessor SetHighlightOptions(HighlightOptions highlightOptions)
+        {
+            _highlightOptions = highlightOptions;
+            return this;
+        }
 
-			var prototypeRows = GetPrototype(contentControl, fieldNames);
+        /// <summary>
+        /// Fills content with one content item
+        /// </summary>
+        /// <param name="contentControl">Content control</param>
+        /// <param name="item">Content item</param>
+        private ProcessResult FillContent(XContainer contentControl, IContentItem item)
+        {
+            if (!(item is TableContent))
+            {
+                return ProcessResult.NotHandledResult;
+            }
 
-			//Select content controls tag names
-			var contentControlTagNames = prototypeRows
-				.Descendants(W.sdt)
-				.Select(sdt => sdt.SdtTagName())
-				.Where(fieldNames.Contains)
-				.ToList();
+            var processResult = ProcessResult.NotHandledResult;
 
+            var table = item as TableContent;
 
-			//If there are not content controls with the one of specified field name we need to add the warning
-			if (contentControlTagNames.Intersect(fieldNames).Count() != fieldNames.Count())
-			{
-				var invalidFileNames = fieldNames
-					.Where(fn => !contentControlTagNames.Contains(fn))
-					.ToList();
+            // If there isn't a table with that name, add an error to the error string,
+            // and continue with next table.
+            if (contentControl == null)
+            {
+                processResult.AddError(new ContentControlNotFoundError(table));
 
-				processResult.AddError(
-					new CustomContentItemError(table, 
-					String.Format("doesn't contain rows with cell content {0} {1}",
-						invalidFileNames.Count > 1 ? "controls" : "control",
-						string.Join(", ", invalidFileNames.Select(fn => string.Format("'{0}'", fn))))));
+                return processResult;
+            }
 
-			}
+            // If the table doesn't contain content controls in cells, then error and continue with next table.
+            var cellContentControl = contentControl.Descendants(W.sdt).FirstOrDefault();
+            if (cellContentControl == null)
+            {
+                processResult.AddError(new CustomContentItemError(table, "doesn\'t contain content controls in cells"));
 
+                return processResult;
+            }
 
-			// Create a list of new rows to be inserted into the document.  Because this
-			// is a document centric transform, this is written in a non-functional
-			// style, using tree modification.
-			var newRows = new List<List<XElement>>();
-			foreach (var row in table.Rows)
-			{
-				// Clone the prototypeRows into newRowsEntry.
-				var newRowsEntry = prototypeRows.Select(prototypeRow => new XElement(prototypeRow)).ToList();
+            var fieldNames = table.FieldNames.ToList();
 
-				// Create new rows that will contain the data that was passed in to this
-				// method in the XML tree.
-				foreach (var sdt in newRowsEntry.FirstLevelDescendantsAndSelf(W.sdt).ToList())
-				{
-					// Get fieldName from the content control tag.
-					var fieldName = sdt.SdtTagName();
+            var prototypeRows = GetPrototype(contentControl, fieldNames);
 
-					var content = row.GetContentItem(fieldName);
+            // Select content controls tag names
+            var contentControlTagNames =
+                prototypeRows.Descendants(W.sdt).Select(sdt => sdt.SdtTagName()).Where(fieldNames.Contains).ToList();
 
-					if (content != null)
-					{
-						var contentProcessResult = new ContentProcessor(_context)
-							.SetRemoveContentControls(_isNeedToRemoveContentControls)
-							.FillContent(sdt, content);
+            // If there are not content controls with the one of specified field name we need to add the warning
+            if (contentControlTagNames.Intersect(fieldNames).Count() != fieldNames.Count())
+            {
+                var invalidFileNames = fieldNames.Where(fn => !contentControlTagNames.Contains(fn)).ToList();
 
-						processResult.Merge(contentProcessResult);
-					}
-				}
+                processResult.AddError(
+                    new CustomContentItemError(
+                        table, 
+                        string.Format(
+                            "doesn't contain rows with cell content {0} {1}", 
+                            invalidFileNames.Count > 1 ? "controls" : "control", 
+                            string.Join(", ", invalidFileNames.Select(fn => string.Format("'{0}'", fn))))));
+            }
 
-				// Add the newRow to the list of rows that will be placed in the newly
-				// generated table.
-				newRows.Add(newRowsEntry);
-			}
+            // Create a list of new rows to be inserted into the document.  Because this
+            // is a document centric transform, this is written in a non-functional
+            // style, using tree modification.
+            var newRows = new List<List<XElement>>();
+            foreach (var row in table.Rows)
+            {
+                // Clone the prototypeRows into newRowsEntry.
+                var newRowsEntry = prototypeRows.Select(prototypeRow => new XElement(prototypeRow)).ToList();
 
-			prototypeRows.Last().AddAfterSelf(newRows);
+                // Create new rows that will contain the data that was passed in to this
+                // method in the XML tree.
+                foreach (var sdt in newRowsEntry.FirstLevelDescendantsAndSelf(W.sdt).ToList())
+                {
+                    // Get fieldName from the content control tag.
+                    var fieldName = sdt.SdtTagName();
 
-			// Remove the prototype rows
-			prototypeRows.Remove();
+                    var content = row.GetContentItem(fieldName);
 
-			processResult.AddItemToHandled(table);
+                    if (content != null)
+                    {
+                        var contentProcessResult =
+                            new ContentProcessor(_context)
+                                .SetRemoveContentControls(_isNeedToRemoveContentControls)
+                                .SetHighlightOptions(_highlightOptions)
+                                .FillContent(sdt, content);
 
-			return processResult;
-		}
+                        processResult.Merge(contentProcessResult);
+                    }
+                }
 
-		// Determine the elements that contains the content controls with specified names.
-		// This is the prototype for the rows that the code will generate from data.
-		private List<XElement> GetPrototype(XContainer tableContentControl, IEnumerable<string> fieldNames)
-		{
-			var rowsWithContentControl = tableContentControl
-				.Descendants(W.tr)
-				.Where(tr =>
-					tr.Descendants(W.sdt)
-						.Any(sdt =>
-							fieldNames.Contains(
-								sdt.SdtTagName())))
-				.ToList();
+                // Add the newRow to the list of rows that will be placed in the newly
+                // generated table.
+                newRows.Add(newRowsEntry);
+            }
 
+            prototypeRows.Last().AddAfterSelf(newRows);
 
-			return GetIntermediateAndMergedRows(rowsWithContentControl.First(), rowsWithContentControl.Last(),
-				tableContentControl);
-		}
+            // Remove the prototype rows
+            prototypeRows.Remove();
 
-		private List<XElement> GetIntermediateAndMergedRows(XElement firstRow, XElement lastRow, XContainer tableContentControl)
-		{
-			var resultRows = new List<XElement>();
+            processResult.AddItemToHandled(table);
 
-			var mergeVector = new bool[lastRow.Descendants(W.tc).Count()];
+            return processResult;
+        }
 
-			var firstRowReached = false;
-			var lastRowReached = false;
+        private List<XElement> GetIntermediateAndMergedRows(
+            XElement firstRow, 
+            XElement lastRow, 
+            XContainer tableContentControl)
+        {
+            var resultRows = new List<XElement>();
 
-			//find merged rows and rows between first and last rows
-			foreach (var tableRow in tableContentControl.Descendants(W.tr))
-			{
-				if (tableRow == firstRow)
-				{
-					resultRows.Add(tableRow);
-					firstRowReached = true;
-				}
-				if (!firstRowReached) continue;
+            var mergeVector = new bool[lastRow.Descendants(W.tc).Count()];
 
-				if (!lastRowReached)
-				{
-					if (tableRow == lastRow)
-					{
-						if (firstRow != lastRow)
-							resultRows.Add(tableRow);
+            var firstRowReached = false;
+            var lastRowReached = false;
 
-						var lastRowCells = lastRow.Descendants(W.tc).ToArray();
-						for (var i = 0; i < lastRowCells.Count(); i++)
-						{
-							var cell = lastRowCells[i];
-							var cellFormatting = cell.Element(W.tcPr);
-							if (cellFormatting != null && cellFormatting.Element(W.vMerge) != null)
-							{
-								mergeVector[i] = true;
-							}
-						}
-						lastRowReached = true;
-						continue;
-					}
+            // find merged rows and rows between first and last rows
+            foreach (var tableRow in tableContentControl.Descendants(W.tr))
+            {
+                if (tableRow == firstRow)
+                {
+                    resultRows.Add(tableRow);
+                    firstRowReached = true;
+                }
 
-					if (tableRow != firstRow)
-						resultRows.Add(tableRow);
-				}
+                if (!firstRowReached)
+                {
+                    continue;
+                }
 
-				//if there are any maybe merged rows
-				if (mergeVector.Any(r => r))
-				{
-					var rowCells = tableRow.Descendants(W.tc).ToArray();
-					for (var i = 0; i < rowCells.Count(); i++)
-					{
-						var cell = rowCells[i];
-						var cellFormatting = cell.Element(W.tcPr);
-						if (cellFormatting != null && cellFormatting.Element(W.vMerge) != null &&
-							(cellFormatting.Element(W.vMerge).Attribute(W.val) == null ||
-							 cellFormatting.Element(W.vMerge).Attribute(W.val).Value == "continue"))
-						{
-							resultRows.Add(tableRow);
-							mergeVector[i] = true;
-						}
-						else
-						{
-							mergeVector[i] = false;
-						}
-					}
-				}
-				else if (lastRowReached)
-					break;
-			}
+                if (!lastRowReached)
+                {
+                    if (tableRow == lastRow)
+                    {
+                        if (firstRow != lastRow)
+                        {
+                            resultRows.Add(tableRow);
+                        }
 
+                        var lastRowCells = lastRow.Descendants(W.tc).ToArray();
+                        for (var i = 0; i < lastRowCells.Count(); i++)
+                        {
+                            var cell = lastRowCells[i];
+                            var cellFormatting = cell.Element(W.tcPr);
+                            if (cellFormatting != null && cellFormatting.Element(W.vMerge) != null)
+                            {
+                                mergeVector[i] = true;
+                            }
+                        }
 
-			return resultRows;
-		}
-	}
+                        lastRowReached = true;
+                        continue;
+                    }
+
+                    if (tableRow != firstRow)
+                    {
+                        resultRows.Add(tableRow);
+                    }
+                }
+
+                // if there are any maybe merged rows
+                if (mergeVector.Any(r => r))
+                {
+                    var rowCells = tableRow.Descendants(W.tc).ToArray();
+                    for (var i = 0; i < rowCells.Count(); i++)
+                    {
+                        var cell = rowCells[i];
+                        var cellFormatting = cell.Element(W.tcPr);
+                        if (cellFormatting != null && cellFormatting.Element(W.vMerge) != null
+                            && (cellFormatting.Element(W.vMerge).Attribute(W.val) == null
+                                || cellFormatting.Element(W.vMerge).Attribute(W.val).Value == "continue"))
+                        {
+                            resultRows.Add(tableRow);
+                            mergeVector[i] = true;
+                        }
+                        else
+                        {
+                            mergeVector[i] = false;
+                        }
+                    }
+                }
+                else if (lastRowReached)
+                {
+                    break;
+                }
+            }
+
+            return resultRows;
+        }
+
+        // Determine the elements that contains the content controls with specified names.
+        // This is the prototype for the rows that the code will generate from data.
+        private List<XElement> GetPrototype(XContainer tableContentControl, IEnumerable<string> fieldNames)
+        {
+            var rowsWithContentControl =
+                tableContentControl.Descendants(W.tr)
+                    .Where(tr => tr.Descendants(W.sdt).Any(sdt => fieldNames.Contains(sdt.SdtTagName())))
+                    .ToList();
+
+            return GetIntermediateAndMergedRows(
+                rowsWithContentControl.First(), 
+                rowsWithContentControl.Last(), 
+                tableContentControl);
+        }
+    }
 }

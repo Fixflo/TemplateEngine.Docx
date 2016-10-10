@@ -1,63 +1,62 @@
-﻿using DocumentFormat.OpenXml.Packaging;
-using System.Collections.Generic;
-using System.Linq;
-using System.Xml.Linq;
-using TemplateEngine.Docx.Errors;
-
-namespace TemplateEngine.Docx.Processors
+﻿namespace TemplateEngine.Docx.Processors
 {
-	internal class ImagesProcessor:IProcessor
-	{
-		private readonly ProcessContext _context;
-		public ImagesProcessor(ProcessContext context)
-		{
-			_context = context;
-		}
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Xml.Linq;
 
-		private bool _isNeedToRemoveContentControls;
+    using DocumentFormat.OpenXml.Packaging;
 
-		public IProcessor SetRemoveContentControls(bool isNeedToRemove)
-		{
-			_isNeedToRemoveContentControls = isNeedToRemove;
-			return this;
-		}
+    using TemplateEngine.Docx.Errors;
 
-		public ProcessResult FillContent(XElement contentControl, IEnumerable<IContentItem> items)
-		{
-			var processResult = ProcessResult.NotHandledResult;
+    internal class ImagesProcessor : IProcessor
+    {
+        private readonly ProcessContext _context;
 
-			foreach (var contentItem in items)
-			{
-				processResult.Merge(FillContent(contentControl, contentItem));
-			}
+        private bool _isNeedToRemoveContentControls;
 
+        private HighlightOptions _highlightOptions;
 
-			if (processResult.Success && _isNeedToRemoveContentControls)
-				contentControl.RemoveContentControl();
+        public ImagesProcessor(ProcessContext context)
+        {
+            _context = context;
+        }
 
-			return processResult;
-		}
+        public ProcessResult FillContent(XElement contentControl, IEnumerable<IContentItem> items)
+        {
+            var processResult = ProcessResult.NotHandledResult;
 
-		public ProcessResult FillContent(XElement contentControl, IContentItem item)
-		{
-			var processResult = ProcessResult.NotHandledResult; 
+            foreach (var contentItem in items)
+            {
+                processResult.Merge(FillContent(contentControl, contentItem));
+            }
 
-			if (!(item is ImageContent))
-			{
-				processResult = ProcessResult.NotHandledResult;
-				return processResult;
-			}
+            if (processResult.Success && _isNeedToRemoveContentControls)
+            {
+                contentControl.RemoveContentControl();
+            }
 
-			var field = item as ImageContent;
+            return processResult;
+        }
 
-			// If there isn't a field with that name, add an error to the error string,
-			// and continue with next field.
-			if (contentControl == null)
-			{
-				processResult.AddError(new ContentControlNotFoundError(field));
-				return processResult;
-			}
+        public ProcessResult FillContent(XElement contentControl, IContentItem item)
+        {
+            var processResult = ProcessResult.NotHandledResult;
 
+            if (!(item is ImageContent))
+            {
+                processResult = ProcessResult.NotHandledResult;
+                return processResult;
+            }
+
+            var field = item as ImageContent;
+
+            // If there isn't a field with that name, add an error to the error string,
+            // and continue with next field.
+            if (contentControl == null)
+            {
+                processResult.AddError(new ContentControlNotFoundError(field));
+                return processResult;
+            }
 
             var blip = contentControl.DescendantsAndSelf(A.blip).First();
             if (blip == null)
@@ -70,17 +69,30 @@ namespace TemplateEngine.Docx.Processors
 
             var imagePart = (ImagePart)_context.Document.GetPartById(imageId);
 
-			if (imagePart != null)
-			{
-				_context.Document.RemovePartById(imageId);
-			}
+            if (imagePart != null)
+            {
+                _context.Document.RemovePartById(imageId);
+            }
 
-			var imagePartId = _context.Document.AddImagePart(field.Binary);
+            var imagePartId = _context.Document.AddImagePart(field.Binary);
 
-			blip.Attribute(R.embed).SetValue(imagePartId);
+            blip.Attribute(R.embed).SetValue(imagePartId);
 
-			processResult.AddItemToHandled(item);
-			return processResult;
-		}
-	}
+            processResult.AddItemToHandled(item);
+            return processResult;
+        }
+
+        public IProcessor SetRemoveContentControls(bool isNeedToRemove)
+        {
+            _isNeedToRemoveContentControls = isNeedToRemove;
+            return this;
+        }
+
+
+        public IProcessor SetHighlightOptions(HighlightOptions highlightOptions)
+        {
+            _highlightOptions = highlightOptions;
+            return this;
+        }
+    }
 }

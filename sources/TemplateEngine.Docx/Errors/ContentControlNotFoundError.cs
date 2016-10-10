@@ -1,45 +1,38 @@
-﻿using System;
-
-namespace TemplateEngine.Docx.Errors
+﻿namespace TemplateEngine.Docx.Errors
 {
-	internal class ContentControlNotFoundError : IError, IEquatable<ContentControlNotFoundError>, IEquatable<IError>
-	{
-		private const string ErrorMessageTemplate =
-					"{0} Content Control '{1}' not found.";
-		internal ContentControlNotFoundError(IContentItem contentItem)
-		{
-			ContentItem = contentItem;
-		}
+    using System;
 
-		public string Message
-		{
-			get
-			{
-				return string.Format(ErrorMessageTemplate, ContentItem.GetContentItemName(), ContentItem.Name);
-			}
-		}
+    internal class ContentControlNotFoundError : IError, IEquatable<ContentControlNotFoundError>
+    {
+        private const string ErrorMessageTemplate = "{0} Content Control '{1}' not found.";
 
-		public IContentItem ContentItem { get; private set; }
+        internal ContentControlNotFoundError(IContentItem contentItem)
+        {
+            ContentItem = contentItem;
+        }
 
-		#region Equals
-		public bool Equals(ContentControlNotFoundError other)
-		{
-			if (other == null) return false;
+        public IContentItem ContentItem { get; }
 
-			return other.ContentItem.Equals(ContentItem);
-		}
+        public string Message => string.Format(ErrorMessageTemplate, ContentItem.GetContentItemName(), ContentItem.Name);
 
-		public bool Equals(IError other)
-		{
-			if (!(other is ContentControlNotFoundError)) return false;
+        public bool Equals(ContentControlNotFoundError other)
+        {
+            return other != null && other.ContentItem.Equals(ContentItem);
+        }
 
-			return Equals((ContentControlNotFoundError) other);
-		}
+        public bool Equals(IError other)
+        {
+            if (!(other is ContentControlNotFoundError))
+            {
+                return false;
+            }
 
-		public override int GetHashCode()
-		{
-			return ContentItem.GetHashCode();
-		}
-		#endregion
-	}
+            return Equals((ContentControlNotFoundError)other);
+        }
+
+        public override int GetHashCode()
+        {
+            return ContentItem.GetHashCode();
+        }
+    }
 }

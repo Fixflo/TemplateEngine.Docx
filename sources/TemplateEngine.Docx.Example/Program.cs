@@ -3,15 +3,20 @@ using System.IO;
 
 namespace TemplateEngine.Docx.Example
 {
+    using TemplateEngine.Docx.Processors;
+
     class Program
     {
         static void Main(string[] args)
         {
             File.Delete("OutputDocument.docx");
             File.Copy("InputTemplate.docx", "OutputDocument.docx");
-
-
+            
             var valuesToFill = new Content(
+
+                // nonsense field
+                new FieldContent("Nonsense Field", "ABC"),
+
                 // Add field.
                 new FieldContent("Report date", DateTime.Now.ToShortDateString()),
 
@@ -187,21 +192,24 @@ namespace TemplateEngine.Docx.Example
 
             );
 
-            using (var outputDocument = new TemplateProcessor("OutputDocument.docx")
-                .SetRemoveContentControls(true))
+            using (
+                var outputDocument =
+                    new TemplateProcessor("OutputDocument.docx").SetRemoveContentControls(true)
+                        .SetNoticeAboutErrors(false)) 
+            //.SetHighlightOptions(new HighlightOptions { Color = "#000000", Background = "yellow" }))
             {
                 outputDocument.FillContent(valuesToFill);
                 outputDocument.SaveChanges();
             }
 
-            File.Delete("OutputDocument.docx");
-            File.Copy("InputTemplate.docx", "OutputDocument.docx");
+            //File.Delete("OutputDocument.docx");
+            //File.Copy("InputTemplate.docx", "OutputDocument.docx");
 
-            using (var outputDocument = new TemplateProcessor("OutputDocument.docx")
-                .SetRemoveContentControls(true))
-            {
-                var f = outputDocument.GetTags();
-            }
+            //using (var outputDocument = new TemplateProcessor("OutputDocument.docx")
+            //    .SetRemoveContentControls(true))
+            //{
+            //    var f = outputDocument.GetTags(options);
+            //}
         }
     }
 }
