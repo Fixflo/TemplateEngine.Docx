@@ -195,7 +195,7 @@ namespace TemplateEngine.Docx.Example
             using (
                 var outputDocument =
                     new TemplateProcessor("OutputDocument.docx").SetRemoveContentControls(true)
-                        .SetNoticeAboutErrors(false)) 
+                    .SetRenderOptions(new RenderOptions()))
             //.SetHighlightOptions(new HighlightOptions { Color = "#000000", Background = "yellow" }))
             {
                 outputDocument.FillContent(valuesToFill);

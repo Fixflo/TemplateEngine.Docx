@@ -9,7 +9,7 @@
     {
         private bool _isNeedToRemoveContentControls;
 
-        private HighlightOptions _highlightOptions;
+        private RenderOptions _highlightOptions;
 
         private readonly ProcessContext _context;
         public FieldsProcessor(ProcessContext context)
@@ -66,7 +66,7 @@
             return this;
         }
 
-        public IProcessor SetHighlightOptions(HighlightOptions options)
+        public IProcessor SetHighlightOptions(RenderOptions options)
         {
             _highlightOptions = options;
             return this;

@@ -13,7 +13,7 @@
 
         private bool _isNeedToRemoveContentControls;
 
-        private HighlightOptions _highlightOptions;
+        private RenderOptions _highlightOptions;
 
         public TableProcessor(ProcessContext context)
         {
@@ -61,7 +61,7 @@
             return this;
         }
 
-        public IProcessor SetHighlightOptions(HighlightOptions highlightOptions)
+        public IProcessor SetHighlightOptions(RenderOptions highlightOptions)
         {
             _highlightOptions = highlightOptions;
             return this;
@@ -146,7 +146,7 @@
                         var contentProcessResult =
                             new ContentProcessor(_context)
                                 .SetRemoveContentControls(_isNeedToRemoveContentControls)
-                                .SetHighlightOptions(_highlightOptions)
+                                .SetRenderOptions(_highlightOptions)
                                 .FillContent(sdt, content);
 
                         processResult.Merge(contentProcessResult);

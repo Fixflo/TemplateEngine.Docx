@@ -9,6 +9,6 @@
 
         IProcessor SetRemoveContentControls(bool isNeedToRemove);
 
-        IProcessor SetHighlightOptions(HighlightOptions highlightOptions);
+        IProcessor SetHighlightOptions(RenderOptions highlightOptions);
     }
 }

@@ -216,7 +216,8 @@ namespace TemplateEngine.Docx.Tests
 			};
 
 			var template = new TemplateProcessor(templateDocument)
-				.SetNoticeAboutErrors(false)
+				//.SetNoticeAboutErrors(false)
+                .SetRenderOptions(new RenderOptions { HighlightMissingContent = false })
 				.FillContent(valuesToFill);
 
 			var documentXml = template.Document.ToString();

@@ -58,7 +58,7 @@
     <Compile Include="Errors\CustomContentItemError.cs" />
     <Compile Include="Errors\ContentControlNotFoundError.cs" />
     <Compile Include="Errors\IError.cs" />
-    <Compile Include="HighlightOptions.cs" />
+    <Compile Include="RenderOptions.cs" />
     <Compile Include="R.cs" />
     <Compile Include="ListItem.cs" />
     <Compile Include="ListItemRetriever.cs" />

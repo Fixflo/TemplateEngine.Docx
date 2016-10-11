@@ -14,7 +14,7 @@
 
         private bool _isNeedToRemoveContentControls;
 
-        private HighlightOptions _highlightOptions;
+        private RenderOptions _highlightOptions;
 
         public ImagesProcessor(ProcessContext context)
         {
@@ -89,7 +89,7 @@
         }
 
 
-        public IProcessor SetHighlightOptions(HighlightOptions highlightOptions)
+        public IProcessor SetHighlightOptions(RenderOptions highlightOptions)
         {
             _highlightOptions = highlightOptions;
             return this;

@@ -14,9 +14,9 @@ namespace TemplateEngine.Docx
     {
         private readonly WordDocumentContainer _wordDocument;
         private bool _isNeedToRemoveContentControls;
-        private bool _isNeedToNoticeAboutErrors;
+        //private bool _isNeedToNoticeAboutErrors;
 
-        private HighlightOptions _highlightOptions;
+        private RenderOptions _renderOptions;
 
         public XDocument Document { get { return _wordDocument.MainDocumentPart; } }
 
@@ -31,7 +31,8 @@ namespace TemplateEngine.Docx
         private TemplateProcessor(WordprocessingDocument wordDocument)
         {
             _wordDocument = new WordDocumentContainer(wordDocument);
-            _isNeedToNoticeAboutErrors = true;
+            _renderOptions = new RenderOptions();
+            //_isNeedToNoticeAboutErrors = true;
         }
 
         public TemplateProcessor(string fileName) : this(WordprocessingDocument.Open(fileName, true))
@@ -44,7 +45,8 @@ namespace TemplateEngine.Docx
 
         public TemplateProcessor(XDocument templateSource, XDocument stylesPart = null, XDocument numberingPart = null)
         {
-            _isNeedToNoticeAboutErrors = true;
+            _renderOptions= new RenderOptions();
+            //_isNeedToNoticeAboutErrors = true;
             _wordDocument = new WordDocumentContainer(templateSource, stylesPart, numberingPart);
         }
 
@@ -54,15 +56,15 @@ namespace TemplateEngine.Docx
             return this;
         }
 
-        public TemplateProcessor SetNoticeAboutErrors(bool isNeedToNotice)
-        {
-            _isNeedToNoticeAboutErrors = isNeedToNotice;
-            return this;
-        }
+        //public TemplateProcessor SetNoticeAboutErrors(bool isNeedToNotice)
+        //{
+        //    _isNeedToNoticeAboutErrors = isNeedToNotice;
+        //    return this;
+        //}
 
-        public TemplateProcessor SetHighlightOptions(HighlightOptions highlightOptions)
+        public TemplateProcessor SetRenderOptions(RenderOptions renderOptions)
         {
-            _highlightOptions = highlightOptions;
+            _renderOptions = renderOptions;
             return this;
         }
 
@@ -71,7 +73,7 @@ namespace TemplateEngine.Docx
             var processor = new ContentProcessor(
                 new ProcessContext(_wordDocument))
                 .SetRemoveContentControls(_isNeedToRemoveContentControls)
-                .SetHighlightOptions(_highlightOptions);
+                .SetRenderOptions(_renderOptions);
 
             var processResult = processor.FillContent(Document.Root.Element(W.body), content);
 
@@ -93,7 +95,7 @@ namespace TemplateEngine.Docx
                 }
             }
 
-            if (_isNeedToNoticeAboutErrors)
+            if (_renderOptions.HighlightMissingContent)
                 AddErrors(processResult.Errors);
 
             return this;
@@ -104,7 +106,7 @@ namespace TemplateEngine.Docx
             var processor = new ContentProcessor(
                 new ProcessContext(_wordDocument))
                 .SetRemoveContentControls(_isNeedToRemoveContentControls)
-                .SetHighlightOptions(_highlightOptions);
+                .SetRenderOptions(_renderOptions);
 
             var processResult = processor.FindAllTags(Document.Root.Element(W.body));
 

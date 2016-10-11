@@ -1,8 +1,11 @@
 ﻿namespace TemplateEngine.Docx.Processors
 {
+    using System;
     using System.Collections.Generic;
     using System.Linq;
     using System.Xml.Linq;
+
+    using TemplateEngine.Docx.Errors;
 
     internal class ContentProcessor
     {
@@ -10,7 +13,7 @@
 
         private bool _isNeedToRemoveContentControls;
 
-        private HighlightOptions _highlightOptions;
+        private RenderOptions _renderOptions;
 
         internal ContentProcessor(ProcessContext context)
         {
@@ -25,9 +28,88 @@
 
         public ProcessResult FillContent(XElement content, IEnumerable<IContentItem> data)
         {
+            switch (_renderOptions.RenderMethod)
+            {
+                case RenderMethod.ByTags:
+                    return FillContentByTags(content, data);
+                case RenderMethod.ByContent:
+                    return FillContentByContent(content, data);
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+
+        private ProcessResult FillContentByTags(XElement content, IEnumerable<IContentItem> data)
+        {
             var result = ProcessResult.NotHandledResult;
             var processedItems = new List<IContentItem>();
             data = data.ToList();
+
+            //var missingControls = FindMissingControls(content, data);
+            //foreach (var missingControl in missingControls)
+            //{
+            //    result.AddError(new ContentControlNotFoundError(missingControl));
+            //}
+
+            var allTags = FindAllTags(content);
+
+            foreach (var tag in allTags)
+            {
+                if (processedItems.Any(i => i.Name == tag))
+                {
+                    continue;
+                }
+
+                var contentControls = FindContentControls(content, tag).ToList();
+
+                // Need to get error message from processor.
+                if (!contentControls.Any())
+                {
+                    contentControls.Add(null);
+                }
+
+                foreach (var xElement in contentControls)
+                {
+                    // COME BACK TO THIS - NOT USING TABLE CONTROLS
+                    //if (contentItems.Any(item => item is TableContent) && xElement != null)
+                    //{
+                    //    var processTableFieldsResult = ProcessTableFields(data.OfType<FieldContent>(), xElement);
+                    //    processedItems.AddRange(processTableFieldsResult.HandledItems);
+
+                    //    result.Merge(processTableFieldsResult);
+                    //}
+
+                    foreach (var processor in _processors)
+                    {
+                        var contentItems = data.Where(e => e.Name == tag);
+
+                        if (!contentItems.Any())
+                        {
+                            contentItems = new List<IContentItem> { new FieldContent { Name = tag, Value = "MISSING" } };
+                        }
+
+                        var processorResult = processor.FillContent(xElement, contentItems);
+
+                        processedItems.AddRange(processorResult.HandledItems);
+                        result.Merge(processorResult);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        public ProcessResult FillContentByContent(XElement content, IEnumerable<IContentItem> data)
+        {
+            var result = ProcessResult.NotHandledResult;
+            var processedItems = new List<IContentItem>();
+            data = data.ToList();
+
+            //var missingControls = FindMissingControls(content, data);
+            //foreach (var missingControl in missingControls)
+            //{
+            //    result.AddError(new ContentControlNotFoundError(missingControl));
+            //}
 
             foreach (var contentItems in data.GroupBy(d => d.Name))
             {
@@ -123,12 +205,12 @@
             return this;
         }
 
-        public ContentProcessor SetHighlightOptions(HighlightOptions highlightOptions)
+        public ContentProcessor SetRenderOptions(RenderOptions renderOptions)
         {
-            _highlightOptions  = highlightOptions;
+            _renderOptions = renderOptions;
             foreach (var processor in _processors)
             {
-                processor.SetHighlightOptions(_highlightOptions);
+                processor.SetHighlightOptions(_renderOptions);
             }
 
             return this;
@@ -143,6 +225,13 @@
 
                 // with specified tagName
                 .Where(sdt => tagName == sdt.SdtTagName());
+        }
+
+        private IEnumerable<IContentItem> FindMissingControls(XElement content, IEnumerable<IContentItem> tags)
+        {
+            var allTags = tags.ToList();
+            var allItems = FindTags(content).ToList();
+            return allTags.Where(e => !allItems.Contains(e.Name)).ToList();
         }
 
         private IEnumerable<string> FindTags(XElement content)

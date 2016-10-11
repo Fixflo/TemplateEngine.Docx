@@ -15,7 +15,7 @@ namespace TemplateEngine.Docx
             ReplaceContentControlWithNewValue(sdt, newValue, null);
         }
 
-        public static void ReplaceContentControlWithNewValue(this XElement sdt, string newValue, HighlightOptions highlightOptions)
+        public static void ReplaceContentControlWithNewValue(this XElement sdt, string newValue, RenderOptions highlightOptions)
         {
 
             var sdtContentElement = sdt.Element(W.sdtContent);
@@ -36,15 +36,26 @@ namespace TemplateEngine.Docx
                         .Descendants(W.t)
                         .First();
 
-                    var firstFormatElement = firstContentElementWithText.Descendants(W.rPr).First();
+                    var firstFormatElements = firstContentElementWithText.Descendants(W.rPr);
 
-                    // add in the replacement highlighting
-                    if (highlightOptions != null)
+                    // remove all color and background formatting and replace with this stuff
+                    foreach (var firstFormatElement in firstFormatElements)
                     {
-                        firstFormatElement.Add(new XElement(W.color, new XAttribute(W.val, highlightOptions.Color)));
-                        //firstFormatElement.Add(new XElement(W.sz, new XAttribute(W.val, "28")));
-                        //firstFormatElement.Add(new XElement(W.szCs, new XAttribute(W.val, "28")));
-                        firstFormatElement.Add(new XElement(W.highlight, new XAttribute(W.val, highlightOptions.Background)));
+                        // add in the replacement highlighting
+                        if (highlightOptions != null)
+                        {
+                            foreach (var element in firstFormatElement.Descendants(W.color).ToList())
+                            {
+                                element.Remove();
+                            }
+                            firstFormatElement.Add(new XElement(W.color, new XAttribute(W.val, highlightOptions.Color)));
+                            
+                            foreach (var element in firstFormatElement.Descendants(W.highlight).ToList())
+                            {
+                                element.Remove();
+                            }
+                            firstFormatElement.Add(new XElement(W.highlight, new XAttribute(W.val, highlightOptions.Background)));
+                        }
                     }
 
                     firstTextElement.Value = newValue;
