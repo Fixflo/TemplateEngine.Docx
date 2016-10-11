@@ -45,22 +45,16 @@
             var processedItems = new List<IContentItem>();
             data = data.ToList();
 
-            //var missingControls = FindMissingControls(content, data);
-            //foreach (var missingControl in missingControls)
-            //{
-            //    result.AddError(new ContentControlNotFoundError(missingControl));
-            //}
+            var tagNames = FindAllTags(content);
 
-            var allTags = FindAllTags(content);
-
-            foreach (var tag in allTags)
+            foreach (var name in tagNames)
             {
-                if (processedItems.Any(i => i.Name == tag))
+                if (processedItems.Any(i => i.Name == name))
                 {
                     continue;
                 }
 
-                var contentControls = FindContentControls(content, tag).ToList();
+                var contentControls = FindContentControls(content, name).ToList();
 
                 // Need to get error message from processor.
                 if (!contentControls.Any())
@@ -81,14 +75,11 @@
 
                     foreach (var processor in _processors)
                     {
-                        var contentItems = data.Where(e => e.Name == tag);
-
-                        if (!contentItems.Any())
-                        {
-                            contentItems = new List<IContentItem> { new FieldContent { Name = tag, Value = "MISSING" } };
-                        }
-
-                        var processorResult = processor.FillContent(xElement, contentItems);
+                        var contentItems = data.Where(e => e.Name == name).ToList();
+                        
+                        var processorResult = contentItems.Any() ?
+                            processor.FillContent(xElement, contentItems) :
+                            processor.FillMissingContent(xElement, name);
 
                         processedItems.AddRange(processorResult.HandledItems);
                         result.Merge(processorResult);

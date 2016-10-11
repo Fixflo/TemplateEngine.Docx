@@ -10,5 +10,7 @@
         IProcessor SetRemoveContentControls(bool isNeedToRemove);
 
         IProcessor SetHighlightOptions(RenderOptions highlightOptions);
+
+        ProcessResult FillMissingContent(XElement xElement, string name);
     }
 }

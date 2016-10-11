@@ -10,7 +10,9 @@ namespace TemplateEngine.Docx
 	{
 		public string Name { get; set; }
 
-		public ICollection<ListItemContent> Items { get; set; }
+	    public bool IsMissing { get; set; }
+
+	    public ICollection<ListItemContent> Items { get; set; }
 
 		public IEnumerable<string> FieldNames
 		{

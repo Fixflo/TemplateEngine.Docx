@@ -44,6 +44,7 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
     <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -54,10 +55,12 @@
   <ItemGroup>
     <Compile Include="AttributesExtensions.cs" />
     <Compile Include="ContentItemNameAttribute.cs" />
+    <Compile Include="Errors\ContentValueNotFoundError.cs" />
     <Compile Include="Errors\CustomError.cs" />
     <Compile Include="Errors\CustomContentItemError.cs" />
     <Compile Include="Errors\ContentControlNotFoundError.cs" />
     <Compile Include="Errors\IError.cs" />
+    <Compile Include="RenderOptionExtensions.cs" />
     <Compile Include="RenderOptions.cs" />
     <Compile Include="R.cs" />
     <Compile Include="ListItem.cs" />

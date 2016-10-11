@@ -8,7 +8,10 @@ namespace TemplateEngine.Docx
     public class TableContent:IContentItem, IEquatable<TableContent>
     {
 		public string Name { get; set; }
-		public ICollection<TableRowContent> Rows { get; set; }
+
+	    public bool IsMissing { get; set; }
+
+	    public ICollection<TableRowContent> Rows { get; set; }
 
 		public IEnumerable<string> FieldNames
 		{

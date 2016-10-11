@@ -18,7 +18,10 @@ namespace TemplateEngine.Docx
         }
    
         public string Name { get; set; }
-		public byte[] Binary { get; set; }
+
+	    public bool IsMissing { get; set; }
+
+	    public byte[] Binary { get; set; }
 
 		#region Equals
 		public bool Equals(ImageContent other)

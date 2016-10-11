@@ -67,6 +67,11 @@
             return this;
         }
 
+        public ProcessResult FillMissingContent(XElement xElement, string name)
+        {
+            return ProcessResult.NotHandledResult;
+        }
+
         /// <summary>
         /// Fills content with one content item
         /// </summary>

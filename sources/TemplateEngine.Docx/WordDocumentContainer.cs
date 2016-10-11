@@ -30,6 +30,7 @@ namespace TemplateEngine.Docx
 
 		internal WordDocumentContainer(WordprocessingDocument wordDocument)
 		{
+            // somehow need to work out how to add custom colors to the document
 			_wordDocument = wordDocument;
 
 			MainDocumentPart = LoadPart(_wordDocument.MainDocumentPart);

@@ -9,7 +9,7 @@
     {
         private bool _isNeedToRemoveContentControls;
 
-        private RenderOptions _highlightOptions;
+        private RenderOptions _renderOptions;
 
         private readonly ProcessContext _context;
         public FieldsProcessor(ProcessContext context)
@@ -53,7 +53,7 @@
                 return processResult;
             }
 
-            contentControl.ReplaceContentControlWithNewValue(field.Value, _highlightOptions);
+            contentControl.ReplaceContentControlWithNewValue(field.Value, field.IsMissing, _renderOptions);
 
             processResult.AddItemToHandled(item);
 
@@ -68,8 +68,23 @@
 
         public IProcessor SetHighlightOptions(RenderOptions options)
         {
-            _highlightOptions = options;
+            _renderOptions = options;
             return this;
+        }
+
+        public ProcessResult FillMissingContent(XElement xElement, string name)
+        {
+            var missingContentItem = new FieldContent
+            {
+                Name = name,
+                Value = string.Format(_renderOptions.MissingContentText, name),
+                IsMissing = true
+            };
+
+            var contentItems = new List<IContentItem> { missingContentItem };
+            var result = FillContent(xElement, contentItems);
+            result.AddError(new ContentValueNotFoundError(missingContentItem));
+            return result;
         }
     }
 }

@@ -69,6 +69,11 @@
             return this;
         }
 
+        public ProcessResult FillMissingContent(XElement xElement, string name)
+        {
+            return ProcessResult.NotHandledResult;
+        }
+
         private ProcessResult FillContent(XElement contentControl, IContentItem item)
         {
             var processResult = ProcessResult.NotHandledResult;

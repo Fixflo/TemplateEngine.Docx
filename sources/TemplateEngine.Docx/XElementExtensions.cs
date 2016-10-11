@@ -10,12 +10,13 @@ namespace TemplateEngine.Docx
         // Set content control value th the new value
         public static void ReplaceContentControlWithNewValue(
             this XElement sdt,
-            string newValue)
+            string newValue,
+            bool isMissing)
         {
-            ReplaceContentControlWithNewValue(sdt, newValue, null);
+            ReplaceContentControlWithNewValue(sdt, newValue, isMissing, null);
         }
 
-        public static void ReplaceContentControlWithNewValue(this XElement sdt, string newValue, RenderOptions highlightOptions)
+        public static void ReplaceContentControlWithNewValue(this XElement sdt, string newValue, bool isMissing, RenderOptions renderOptions)
         {
 
             var sdtContentElement = sdt.Element(W.sdtContent);
@@ -36,25 +37,30 @@ namespace TemplateEngine.Docx
                         .Descendants(W.t)
                         .First();
 
-                    var firstFormatElements = firstContentElementWithText.Descendants(W.rPr);
-
-                    // remove all color and background formatting and replace with this stuff
-                    foreach (var firstFormatElement in firstFormatElements)
+                    if (renderOptions.HighlightTags || isMissing)
                     {
-                        // add in the replacement highlighting
-                        if (highlightOptions != null)
+                        var firstFormatElements = firstContentElementWithText.Descendants(W.rPr);
+
+                        // remove all color and background formatting and replace with this stuff
+                        foreach (var firstFormatElement in firstFormatElements)
                         {
                             foreach (var element in firstFormatElement.Descendants(W.color).ToList())
                             {
                                 element.Remove();
                             }
-                            firstFormatElement.Add(new XElement(W.color, new XAttribute(W.val, highlightOptions.Color)));
-                            
+
+                            firstFormatElement.Add(new XElement(
+                                    W.color,
+                                    new XAttribute(W.val, isMissing ? renderOptions.ErrorColor.ToWordColor() : renderOptions.HighlightColor.ToWordColor())));
+
                             foreach (var element in firstFormatElement.Descendants(W.highlight).ToList())
                             {
                                 element.Remove();
                             }
-                            firstFormatElement.Add(new XElement(W.highlight, new XAttribute(W.val, highlightOptions.Background)));
+
+                            firstFormatElement.Add(new XElement(
+                                    W.highlight,
+                                    new XAttribute(W.val, isMissing ? renderOptions.ErrorBackground.ToWordColor() : renderOptions.HighlightBackground.ToWordColor())));
                         }
                     }
 
