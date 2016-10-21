@@ -35,7 +35,7 @@
 
         public void Dispose()
         {
-            _wordDocuments.ToList().ForEach(e => e.Dispose());
+            //_wordDocuments.ToList().ForEach(e => e.Dispose());
         }
 
         public MemoryStream Merge()
