@@ -84,6 +84,7 @@
     <Compile Include="TemplateCustomContent\ListItemContent.cs" />
     <Compile Include="TemplateCustomContent\TableContent.cs" />
     <Compile Include="TemplateCustomContent\TableRowContent.cs" />
+    <Compile Include="TemplateMerger.cs" />
     <Compile Include="TemplateProcessor.cs" />
     <Compile Include="A.cs" />
     <Compile Include="W.cs" />

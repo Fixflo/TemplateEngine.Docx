@@ -1,9 +1,12 @@
-﻿using System;
-using System.IO;
-
-namespace TemplateEngine.Docx.Example
+﻿namespace TemplateEngine.Docx.Example
 {
-    using TemplateEngine.Docx.Processors;
+    using System;
+    using System.IO;
+    using System.Linq;
+
+    using DocumentFormat.OpenXml.Packaging;
+    using DocumentFormat.OpenXml.Wordprocessing;
+    using System.Collections.Generic;
 
     class Program
     {
@@ -11,7 +14,10 @@ namespace TemplateEngine.Docx.Example
         {
             File.Delete("OutputDocument.docx");
             File.Copy("InputTemplate.docx", "OutputDocument.docx");
-            
+
+            File.Delete("SignatureSample.docx");
+            File.Copy("InputTemplate.docx", "SignatureSample.docx");
+
             var valuesToFill = new Content(
 
                 // nonsense field
@@ -27,97 +33,74 @@ namespace TemplateEngine.Docx.Example
                 new FieldContent("Copyright", "© All rights reserved"),
 
                 // Add table.
-                new TableContent("Team Members Table")
-                    .AddRow(
-                        new FieldContent("Name", "Eric"),
-                        new FieldContent("Role", "Program Manager"))
-                    .AddRow(
-                        new FieldContent("Name", "Bob"),
-                        new FieldContent("Role", "Developer")),
+                new TableContent("Team Members Table").AddRow(
+                    new FieldContent("Name", "Eric"),
+                    new FieldContent("Role", "Program Manager"))
+                    .AddRow(new FieldContent("Name", "Bob"), new FieldContent("Role", "Developer")),
+
                 // Add field inside table that not to propagate.
                 new FieldContent("Count", "2"),
+
                 // Add list.	
-                new ListContent("Team Members List")
-                    .AddItem(
-                        new FieldContent("Name", "Eric"),
-                        new FieldContent("Role", "Program Manager"))
-                    .AddItem(
-                        new FieldContent("Name", "Bob"),
-                        new FieldContent("Role", "Developer")),
+                new ListContent("Team Members List").AddItem(
+                    new FieldContent("Name", "Eric"),
+                    new FieldContent("Role", "Program Manager"))
+                    .AddItem(new FieldContent("Name", "Bob"), new FieldContent("Role", "Developer")),
 
                 // Add nested list.	
-                new ListContent("Team Members Nested List")
-                    .AddItem(new ListItemContent("Role", "Program Manager")
-                        .AddNestedItem(new FieldContent("Name", "Eric"))
+                new ListContent("Team Members Nested List").AddItem(
+                    new ListItemContent("Role", "Program Manager").AddNestedItem(new FieldContent("Name", "Eric"))
                         .AddNestedItem(new FieldContent("Name", "Ann")))
-                    .AddItem(new ListItemContent("Role", "Developer")
-                        .AddNestedItem(new FieldContent("Name", "Bob"))
-                        .AddNestedItem(new FieldContent("Name", "Richard"))),
+                    .AddItem(
+                        new ListItemContent("Role", "Developer").AddNestedItem(new FieldContent("Name", "Bob"))
+                            .AddNestedItem(new FieldContent("Name", "Richard"))),
 
                 // Add list inside table.	
-                new TableContent("Projects Table")
-                    .AddRow(
-                        new FieldContent("Name", "Eric"),
-                        new FieldContent("Role", "Program Manager"),
-                        new ListContent("Projects")
-                            .AddItem(new FieldContent("Project", "Project one"))
-                            .AddItem(new FieldContent("Project", "Project two")))
+                new TableContent("Projects Table").AddRow(
+                    new FieldContent("Name", "Eric"),
+                    new FieldContent("Role", "Program Manager"),
+                    new ListContent("Projects").AddItem(new FieldContent("Project", "Project one"))
+                        .AddItem(new FieldContent("Project", "Project two")))
                     .AddRow(
                         new FieldContent("Name", "Bob"),
                         new FieldContent("Role", "Developer"),
-                        new ListContent("Projects")
-                            .AddItem(new FieldContent("Project", "Project one"))
+                        new ListContent("Projects").AddItem(new FieldContent("Project", "Project one"))
                             .AddItem(new FieldContent("Project", "Project three"))),
 
                 // Add table inside list.	
-                new ListContent("Projects List")
-                    .AddItem(new ListItemContent("Project", "Project one")
-                        .AddTable(TableContent.Create("Team members")
-                            .AddRow(
-                                new FieldContent("Name", "Eric"),
-                                new FieldContent("Role", "Program Manager"))
-                            .AddRow(
-                                new FieldContent("Name", "Bob"),
-                                new FieldContent("Role", "Developer"))))
-                    .AddItem(new ListItemContent("Project", "Project two")
-                        .AddTable(TableContent.Create("Team members")
-                            .AddRow(
-                                new FieldContent("Name", "Eric"),
-                                new FieldContent("Role", "Program Manager"))))
-                    .AddItem(new ListItemContent("Project", "Project three")
-                        .AddTable(TableContent.Create("Team members")
-                            .AddRow(
-                                new FieldContent("Name", "Bob"),
-                                new FieldContent("Role", "Developer")))),
-
+                new ListContent("Projects List").AddItem(
+                    new ListItemContent("Project", "Project one").AddTable(
+                        TableContent.Create("Team members")
+                            .AddRow(new FieldContent("Name", "Eric"), new FieldContent("Role", "Program Manager"))
+                            .AddRow(new FieldContent("Name", "Bob"), new FieldContent("Role", "Developer"))))
+                    .AddItem(
+                        new ListItemContent("Project", "Project two").AddTable(
+                            TableContent.Create("Team members")
+                                .AddRow(new FieldContent("Name", "Eric"), new FieldContent("Role", "Program Manager"))))
+                    .AddItem(
+                        new ListItemContent("Project", "Project three").AddTable(
+                            TableContent.Create("Team members")
+                                .AddRow(new FieldContent("Name", "Bob"), new FieldContent("Role", "Developer")))),
 
                 // Add table with several blocks.	
-                new TableContent("Team Members Statistics")
-                    .AddRow(
-                        new FieldContent("Name", "Eric"),
-                        new FieldContent("Role", "Program Manager"))
-                    .AddRow(
-                        new FieldContent("Name", "Richard"),
-                        new FieldContent("Role", "Program Manager"))
-                    .AddRow(
-                        new FieldContent("Name", "Bob"),
-                        new FieldContent("Role", "Developer")),
-
-                    new TableContent("Team Members Statistics")
-                    .AddRow(
-                        new FieldContent("Statistics Role", "Program Manager"),
-                        new FieldContent("Statistics Role Count", "2"))
+                new TableContent("Team Members Statistics").AddRow(
+                    new FieldContent("Name", "Eric"),
+                    new FieldContent("Role", "Program Manager"))
+                    .AddRow(new FieldContent("Name", "Richard"), new FieldContent("Role", "Program Manager"))
+                    .AddRow(new FieldContent("Name", "Bob"), new FieldContent("Role", "Developer")),
+                new TableContent("Team Members Statistics").AddRow(
+                    new FieldContent("Statistics Role", "Program Manager"),
+                    new FieldContent("Statistics Role Count", "2"))
                     .AddRow(
                         new FieldContent("Statistics Role", "Developer"),
                         new FieldContent("Statistics Role Count", "1")),
 
                 // Add table with merged rows
-                new TableContent("Team members info")
-                    .AddRow(
-                        new FieldContent("Name", "Eric"),
-                        new FieldContent("Role", "Program Manager"),
-                        new FieldContent("Age", "37"),
-                        new FieldContent("Gender", "Male"))
+                new TableContent("Team members info").AddRow(
+                    new FieldContent("Name", "Eric"),
+                    new FieldContent("Role", "Program Manager"),
+                    new FieldContent("Age", "37"),
+                    new FieldContent("Gender", "Male"))
                     .AddRow(
                         new FieldContent("Name", "Bob"),
                         new FieldContent("Role", "Developer"),
@@ -130,12 +113,11 @@ namespace TemplateEngine.Docx.Example
                         new FieldContent("Gender", "Female")),
 
                 // Add table with merged columns
-                new TableContent("Team members projects")
-                    .AddRow(
-                        new FieldContent("Name", "Eric"),
-                        new FieldContent("Role", "Program Manager"),
-                        new FieldContent("Age", "37"),
-                        new FieldContent("Projects", "Project one, Project two"))
+                new TableContent("Team members projects").AddRow(
+                    new FieldContent("Name", "Eric"),
+                    new FieldContent("Role", "Program Manager"),
+                    new FieldContent("Age", "37"),
+                    new FieldContent("Projects", "Project one, Project two"))
                     .AddRow(
                         new FieldContent("Name", "Bob"),
                         new FieldContent("Role", "Developer"),
@@ -151,65 +133,122 @@ namespace TemplateEngine.Docx.Example
                 new ImageContent("photo", File.ReadAllBytes("Tesla.jpg")),
 
                 // Add images inside a table
-                new TableContent("Scientists Table")
-                    .AddRow(new FieldContent("Name", "Nicola Tesla"),
-                        new FieldContent("Born", new DateTime(1856, 7, 10).ToShortDateString()),
-                        new ImageContent("Photo", File.ReadAllBytes("Tesla.jpg")),
-                        new FieldContent("Info",
-                            "Serbian American inventor, electrical engineer, mechanical engineer, physicist, and futurist best known for his contributions to the design of the modern alternating current (AC) electricity supply system"))
-                    .AddRow(new FieldContent("Name", "Thomas Edison"),
+                new TableContent("Scientists Table").AddRow(
+                    new FieldContent("Name", "Nicola Tesla"),
+                    new FieldContent("Born", new DateTime(1856, 7, 10).ToShortDateString()),
+                    new ImageContent("Photo", File.ReadAllBytes("Tesla.jpg")),
+                    new FieldContent(
+                        "Info",
+                        "Serbian American inventor, electrical engineer, mechanical engineer, physicist, and futurist best known for his contributions to the design of the modern alternating current (AC) electricity supply system"))
+                    .AddRow(
+                        new FieldContent("Name", "Thomas Edison"),
                         new FieldContent("Born", new DateTime(1847, 2, 11).ToShortDateString()),
                         new ImageContent("Photo", File.ReadAllBytes("Edison.jpg")),
-                        new FieldContent("Info",
+                        new FieldContent(
+                            "Info",
                             "American inventor and businessman. He developed many devices that greatly influenced life around the world, including the phonograph, the motion picture camera, and the long-lasting, practical electric light bulb."))
-                    .AddRow(new FieldContent("Name", "Albert Einstein"),
+                    .AddRow(
+                        new FieldContent("Name", "Albert Einstein"),
                         new FieldContent("Born", new DateTime(1879, 3, 14).ToShortDateString()),
                         new ImageContent("Photo", File.ReadAllBytes("Einstein.jpg")),
-                        new FieldContent("Info",
+                        new FieldContent(
+                            "Info",
                             "German-born theoretical physicist. He developed the general theory of relativity, one of the two pillars of modern physics (alongside quantum mechanics). Einstein's work is also known for its influence on the philosophy of science. Einstein is best known in popular culture for his mass–energy equivalence formula E = mc2 (which has been dubbed 'the world's most famous equation').")),
 
-
                 // Add images inside a list
-                new ListContent("Scientists List")
-                  .AddItem(new FieldContent("Name", "Nicola Tesla"),
-                      new ImageContent("Photo", File.ReadAllBytes("Tesla.jpg")),
-                      new FieldContent("Dates of life", string.Format("{0}-{1}",
-                          1856, 1943)),
-                      new FieldContent("Info",
-                          "Serbian American inventor, electrical engineer, mechanical engineer, physicist, and futurist best known for his contributions to the design of the modern alternating current (AC) electricity supply system"))
-                  .AddItem(new FieldContent("Name", "Thomas Edison"),
-                      new ImageContent("Photo", File.ReadAllBytes("Edison.jpg")),
-                      new FieldContent("Dates of life", string.Format("{0}-{1}",
-                          1847, 1931)),
-                      new FieldContent("Info",
-                          "American inventor and businessman. He developed many devices that greatly influenced life around the world, including the phonograph, the motion picture camera, and the long-lasting, practical electric light bulb."))
-                  .AddItem(new FieldContent("Name", "Albert Einstein"),
-                      new ImageContent("Photo", File.ReadAllBytes("Einstein.jpg")),
-                      new FieldContent("Dates of life", string.Format("{0}-{1}",
-                          1879, 1955)),
-                      new FieldContent("Info",
-                          "German-born theoretical physicist. He developed the general theory of relativity, one of the two pillars of modern physics (alongside quantum mechanics). Einstein's work is also known for its influence on the philosophy of science. Einstein is best known in popular culture for his mass–energy equivalence formula E = mc2 (which has been dubbed 'the world's most famous equation')."))
-
-            );
+                new ListContent("Scientists List").AddItem(
+                    new FieldContent("Name", "Nicola Tesla"),
+                    new ImageContent("Photo", File.ReadAllBytes("Tesla.jpg")),
+                    new FieldContent("Dates of life", string.Format("{0}-{1}", 1856, 1943)),
+                    new FieldContent(
+                        "Info",
+                        "Serbian American inventor, electrical engineer, mechanical engineer, physicist, and futurist best known for his contributions to the design of the modern alternating current (AC) electricity supply system"))
+                    .AddItem(
+                        new FieldContent("Name", "Thomas Edison"),
+                        new ImageContent("Photo", File.ReadAllBytes("Edison.jpg")),
+                        new FieldContent("Dates of life", string.Format("{0}-{1}", 1847, 1931)),
+                        new FieldContent(
+                            "Info",
+                            "American inventor and businessman. He developed many devices that greatly influenced life around the world, including the phonograph, the motion picture camera, and the long-lasting, practical electric light bulb."))
+                    .AddItem(
+                        new FieldContent("Name", "Albert Einstein"),
+                        new ImageContent("Photo", File.ReadAllBytes("Einstein.jpg")),
+                        new FieldContent("Dates of life", string.Format("{0}-{1}", 1879, 1955)),
+                        new FieldContent(
+                            "Info",
+                            "German-born theoretical physicist. He developed the general theory of relativity, one of the two pillars of modern physics (alongside quantum mechanics). Einstein's work is also known for its influence on the philosophy of science. Einstein is best known in popular culture for his mass–energy equivalence formula E = mc2 (which has been dubbed 'the world's most famous equation').")));
 
             using (
                 var outputDocument =
                     new TemplateProcessor("OutputDocument.docx").SetRemoveContentControls(true)
-                    .SetRenderOptions(new RenderOptions()))
-            //.SetHighlightOptions(new HighlightOptions { Color = "#000000", Background = "yellow" }))
+                        .SetRenderOptions(new RenderOptions()))
             {
+                // .SetHighlightOptions(new HighlightOptions { Color = "#000000", Background = "yellow" }))
                 outputDocument.FillContent(valuesToFill);
                 outputDocument.SaveChanges();
             }
 
-            //File.Delete("OutputDocument.docx");
-            //File.Copy("InputTemplate.docx", "OutputDocument.docx");
+            var fileName1 = "SignatureSample.docx";
+            var fileName2 = "signatures.docx";
+            var fileName3 = "signatures.docx";
+            var fileName4 = "direct debit mandate.docx";
 
-            //using (var outputDocument = new TemplateProcessor("OutputDocument.docx")
-            //    .SetRemoveContentControls(true))
+            var files = new List<string> { fileName1, fileName2, fileName3, fileName4 };
+
+
+            using (var outputDocument = new TemplateMerger(files))
+            {
+                var stream = outputDocument.Merge();
+                var file = File.Create("result.docx");
+                stream.CopyTo(file);
+            }
+
+            //var fileName1 = "SignatureSample.docx";
+            //var fileName2 = "signatures.docx";
+
+            //using (var myDoc = WordprocessingDocument.Open(fileName1, true))
             //{
-            //    var f = outputDocument.GetTags(options);
+            //    var altChunkId = "AltChunkId1";
+            //    var mainPart = myDoc.MainDocumentPart;
+
+            //    var last = myDoc.MainDocumentPart.Document.Body.Elements().LastOrDefault(e => e is Paragraph || e is AltChunk);
+
+            //    last.InsertAfterSelf(new Paragraph(new Run(new Break { Type = BreakValues.Page })));
+
+            //    var chunk = mainPart.AddAlternativeFormatImportPart(
+            //        AlternativeFormatImportPartType.WordprocessingML,
+            //        altChunkId);
+            //    using (var fileStream = File.Open(fileName2, FileMode.Open)) chunk.FeedData(fileStream);
+            //    var altChunk = new AltChunk();
+            //    altChunk.Id = altChunkId;
+            //    mainPart.Document.Body.InsertAfter(altChunk, mainPart.Document.Body.Elements<Paragraph>().Last());
+            //    mainPart.Document.Save();
             //}
+
+            // using (WordprocessingDocument part1 = WordprocessingDocument.Open(@"OutputDocument.docx", false))
+
+            // using (WordprocessingDocument part2 = WordprocessingDocument.Open(@"signatures.docx", false))
+
+            // {
+
+            // var sources = new List<Source>
+            // {
+            // new Source(part1, true),
+            // new Source(part2, true)
+            // };
+
+            // DocumentBuilder.BuildDocument(sources, "MergedDoc.docx");
+
+            // }
+
+            // File.Delete("OutputDocument.docx");
+            // File.Copy("InputTemplate.docx", "OutputDocument.docx");
+
+            // using (var outputDocument = new TemplateProcessor("OutputDocument.docx")
+            // .SetRemoveContentControls(true))
+            // {
+            // var f = outputDocument.GetTags(options);
+            // }
         }
     }
 }
